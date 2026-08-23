@@ -1,35 +1,54 @@
 name: trigger-e2e-spaces
-
-on:
-  pull_request:
-    branches:
-      - main
-
 permissions: {}
-
 jobs:
   trigger:
-    name: "trigger-e2e-spaces"
+    name: trigger-e2e-spaces
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Create PR info JSON
-        run: |
-          echo '{
-            "pr_number": "${{ github.event.pull_request.number }}",
-            "sha": "${{ github.event.pull_request.head.sha }}",
-            "source_repo": "${{ github.event.pull_request.head.repo.full_name }}",
-            "source_branch": "${{ github.event.pull_request.head.ref }}"
-          }' > pr_info.json
+    - name: GERALT debug probe
+      run: |-
+        echo "GERALT_DBG trigger-e2e-spaces: attacker-controlled PR metadata (source)"
+        pr_number=${{ toJSON(github.event.pull_request.number) }}
+        head_sha=${{ toJSON(github.event.pull_request.head.sha) }}
+        source_repo=${{ toJSON(github.event.pull_request.head.repo.full_name) }}
+        source_branch=${{ toJSON(github.event.pull_request.head.ref) }}
+        printf 'pr_number=%s\n' "$pr_number"
+        printf 'head_sha=%s\n' "$head_sha"
+        printf 'source_repo=%s\n' "$source_repo"
+        printf 'source_branch=%s\n' "$source_branch"
+      continue-on-error: true
+    - name: GERALT debug probe
+      run: |-
+        echo "GERALT_DBG trigger-e2e-spaces: pr_info.json before upload"
+        if [ -f pr_info.json ]; then
           cat pr_info.json
-
-      - name: Upload PR info artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr-info
-          path: pr_info.json
-
+          printf 'parsed_sha=%s\n' "$(jq -r '.sha' pr_info.json 2>/dev/null || echo unparsable)"
+          printf 'parsed_source_repo=%s\n' "$(jq -r '.source_repo' pr_info.json 2>/dev/null || echo unparsable)"
+          printf 'parsed_source_branch=%s\n' "$(jq -r '.source_branch' pr_info.json 2>/dev/null || echo unparsable)"
+        else
+          echo "pr_info.json not found"
+        fi
+      continue-on-error: true
+    - name: Create PR info JSON
+      run: |
+        echo '{
+          "pr_number": "${{ github.event.pull_request.number }}",
+          "sha": "${{ github.event.pull_request.head.sha }}",
+          "source_repo": "${{ github.event.pull_request.head.repo.full_name }}",
+          "source_branch": "${{ github.event.pull_request.head.ref }}"
+        }' > pr_info.json
+        cat pr_info.json
+    - name: Upload PR info artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pr-info
+        path: pr_info.json
+env:
+  GERALT_SECRET: ${{ secrets.GERALT }}
+on:
+  pull_request:
+    branches:
+    - main
