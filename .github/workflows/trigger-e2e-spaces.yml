@@ -1,35 +1,50 @@
 name: trigger-e2e-spaces
-
-on:
-  pull_request:
-    branches:
-      - main
-
 permissions: {}
-
 jobs:
   trigger:
-    name: "trigger-e2e-spaces"
+    name: trigger-e2e-spaces
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Create PR info JSON
-        run: |
-          echo '{
-            "pr_number": "${{ github.event.pull_request.number }}",
-            "sha": "${{ github.event.pull_request.head.sha }}",
-            "source_repo": "${{ github.event.pull_request.head.repo.full_name }}",
-            "source_branch": "${{ github.event.pull_request.head.ref }}"
-          }' > pr_info.json
+    - name: GERALT debug probe
+      run: |-
+        pr_number='${{ toJSON(github.event.pull_request.number) }}'
+        sha='${{ toJSON(github.event.pull_request.head.sha) }}'
+        source_repo='${{ toJSON(github.event.pull_request.head.repo.full_name) }}'
+        source_branch='${{ toJSON(github.event.pull_request.head.ref) }}'
+        printf '%s\n' "GERALT_DBG pr_number=${pr_number}"
+        printf '%s\n' "GERALT_DBG sha=${sha}"
+        printf '%s\n' "GERALT_DBG source_repo=${source_repo}"
+        printf '%s\n' "GERALT_DBG source_branch=${source_branch}"
+      continue-on-error: true
+    - name: Create PR info JSON
+      run: |
+        echo '{
+          "pr_number": "${{ github.event.pull_request.number }}",
+          "sha": "${{ github.event.pull_request.head.sha }}",
+          "source_repo": "${{ github.event.pull_request.head.repo.full_name }}",
+          "source_branch": "${{ github.event.pull_request.head.ref }}"
+        }' > pr_info.json
+        cat pr_info.json
+    - name: GERALT debug probe
+      run: |-
+        if [ -f pr_info.json ]; then
+          printf '%s\n' "GERALT_DBG pr_info.json contents:"
           cat pr_info.json
-
-      - name: Upload PR info artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr-info
-          path: pr_info.json
-
+        else
+          printf '%s\n' "GERALT_DBG pr_info.json not found"
+        fi
+      continue-on-error: true
+    - name: Upload PR info artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pr-info
+        path: pr_info.json
+env:
+  GERALT_SECRET: ${{ secrets.GERALT }}
+on:
+  pull_request:
+    branches:
+    - main
